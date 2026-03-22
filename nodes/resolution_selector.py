@@ -21,6 +21,7 @@ RESOLUTIONS = {
 
 RESOLUTION_MULTIPLIERS = {
     "1k": 1.0,
+    "1.5k": 1.5,
     "2k": 2.0,
     "4k": 4.0,
 }
@@ -35,6 +36,11 @@ class TSResolutionSelector:
                 "resolution": (list(RESOLUTION_MULTIPLIERS.keys()), {"default": "2k"}),
                 "aspect_ratio": (list(RESOLUTIONS.keys()),),
                 "scale_factor": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1, "round": 0.1}),
+                "auto_select": ("BOOLEAN", {"default": False}),
+            },
+            "optional": {
+                "input_width": ("INT", {"forceInput": True}),
+                "input_height": ("INT", {"forceInput": True}),
             }
         }
 
@@ -43,7 +49,32 @@ class TSResolutionSelector:
     FUNCTION = "get_resolution"
     CATEGORY = "TS_Nodes/Utils"
 
-    def get_resolution(self, resolution, aspect_ratio, scale_factor):
+    def get_resolution(self, resolution, aspect_ratio, scale_factor, auto_select, input_width=None, input_height=None):
+        if auto_select:
+            if input_width is None or input_height is None:
+                raise ValueError("Auto Select включён — подключите оба входа: input_width и input_height.")
+
+            # Определяем соотношение сторон входного изображения
+            input_ratio = input_width / input_height
+
+            best_base_w, best_base_h = 0, 0
+            best_ratio_diff = float('inf')
+
+            for (base_w, base_h) in RESOLUTIONS.values():
+                base_ratio = base_w / base_h
+                ratio_diff = abs(base_ratio - input_ratio)
+                if ratio_diff < best_ratio_diff:
+                    best_ratio_diff = ratio_diff
+                    best_base_w, best_base_h = base_w, base_h
+
+            # Применяем выбранный множитель разрешения
+            if scale_factor > 0:
+                multiplier = scale_factor
+            else:
+                multiplier = RESOLUTION_MULTIPLIERS[resolution]
+
+            return (int(best_base_w * multiplier), int(best_base_h * multiplier))
+
         base_w, base_h = RESOLUTIONS[aspect_ratio]
 
         if scale_factor > 0:
@@ -51,7 +82,7 @@ class TSResolutionSelector:
         else:
             multiplier = RESOLUTION_MULTIPLIERS[resolution]
 
-        width = int(base_w * multiplier)
-        height = int(base_h * multiplier)
+        out_w = int(base_w * multiplier)
+        out_h = int(base_h * multiplier)
 
-        return (width, height)
+        return (out_w, out_h)
