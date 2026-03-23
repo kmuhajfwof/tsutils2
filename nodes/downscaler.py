@@ -30,21 +30,23 @@ class TSDownscaler:
         return image
 
     def _mode_settings(self, mode: str, width: int, height: int) -> dict:
+        even_w = (width + 1) & ~1
+        even_h = (height + 1) & ~1
         presets = {
             "soft": {
                 "crf": "20",
                 "preset": "veryfast",
-                "vf": "format=yuv420p",
+                "vf": f"scale={even_w}:{even_h},format=yuv420p",
             },
             "medium": {
                 "crf": "27",
                 "preset": "veryfast",
-                "vf": f"scale=trunc(iw*0.75/2)*2:trunc(ih*0.75/2)*2:flags=bicubic,scale={width}:{height}:flags=bicubic,format=yuv420p",
+                "vf": f"scale=trunc(iw*0.75/2)*2:trunc(ih*0.75/2)*2:flags=bicubic,scale={even_w}:{even_h}:flags=bicubic,format=yuv420p",
             },
             "hard": {
                 "crf": "32",
                 "preset": "veryfast",
-                "vf": f"scale=trunc(iw*0.6/2)*2:trunc(ih*0.6/2)*2:flags=bilinear,scale={width}:{height}:flags=bilinear,format=yuv420p",
+                "vf": f"scale=trunc(iw*0.6/2)*2:trunc(ih*0.6/2)*2:flags=bilinear,scale={even_w}:{even_h}:flags=bilinear,format=yuv420p",
             },
         }
 
@@ -132,6 +134,8 @@ class TSDownscaler:
                 "rawvideo",
                 "-pix_fmt",
                 "rgb24",
+                "-s",
+                f"{width}x{height}",
                 "-vsync",
                 "0",
                 "-vframes",
