@@ -29,7 +29,7 @@ class TSDownscaler:
             raise ValueError(f"Expected image with shape [H, W, C] or [B, H, W, C], got {tuple(image.shape)}")
         return image
 
-    def _mode_settings(self, mode: str) -> dict:
+    def _mode_settings(self, mode: str, width: int, height: int) -> dict:
         presets = {
             "soft": {
                 "crf": "20",
@@ -39,12 +39,12 @@ class TSDownscaler:
             "medium": {
                 "crf": "27",
                 "preset": "veryfast",
-                "vf": "scale=iw*0.75:ih*0.75:flags=bicubic,scale=iw/0.75:ih/0.75:flags=bicubic,format=yuv420p",
+                "vf": f"scale=trunc(iw*0.75/2)*2:trunc(ih*0.75/2)*2:flags=bicubic,scale={width}:{height}:flags=bicubic,format=yuv420p",
             },
             "hard": {
                 "crf": "32",
                 "preset": "veryfast",
-                "vf": "scale=iw*0.6:ih*0.6:flags=bilinear,scale=iw/0.6:ih/0.6:flags=bilinear,format=yuv420p",
+                "vf": f"scale=trunc(iw*0.6/2)*2:trunc(ih*0.6/2)*2:flags=bilinear,scale={width}:{height}:flags=bilinear,format=yuv420p",
             },
         }
 
@@ -85,7 +85,7 @@ class TSDownscaler:
         if channels != 3:
             raise ValueError(f"Expected 3 channels (RGB), got {channels}")
 
-        settings = self._mode_settings(mode)
+        settings = self._mode_settings(mode, width, height)
 
         with tempfile.TemporaryDirectory(prefix="ts_downscaler_") as tmp_dir:
             video_path = os.path.join(tmp_dir, "compressed.mp4")
