@@ -29,6 +29,10 @@ RESOLUTION_MULTIPLIERS = {
 }
 
 
+def _round_to_multiple(value, multiple=8):
+    return max(multiple, round(value / multiple) * multiple)
+
+
 class TSResolutionSelector:
 
     @classmethod
@@ -39,6 +43,7 @@ class TSResolutionSelector:
                 "aspect_ratio": (list(RESOLUTIONS.keys()),),
                 "scale_factor": ("FLOAT", {"default": 0.0, "min": 0.0, "max": 10.0, "step": 0.1, "round": 0.1}),
                 "auto_select": ("BOOLEAN", {"default": False}),
+                "latent_compatible": ("BOOLEAN", {"default": False}),
             },
             "optional": {
                 "input_width": ("INT", {"forceInput": True}),
@@ -51,40 +56,37 @@ class TSResolutionSelector:
     FUNCTION = "get_resolution"
     CATEGORY = "TS_Nodes/Utils"
 
-    def get_resolution(self, resolution, aspect_ratio, scale_factor, auto_select, input_width=None, input_height=None):
+    def get_resolution(self, resolution, aspect_ratio, scale_factor, auto_select, latent_compatible, input_width=None, input_height=None):
         if auto_select:
             if input_width is None or input_height is None:
                 raise ValueError("Auto Select включён — подключите оба входа: input_width и input_height.")
 
-            # Определяем соотношение сторон входного изображения
-            input_ratio = input_width / input_height
-
-            best_base_w, best_base_h = 0, 0
-            best_ratio_diff = float('inf')
-
-            for (base_w, base_h) in RESOLUTIONS.values():
-                base_ratio = base_w / base_h
-                ratio_diff = abs(base_ratio - input_ratio)
-                if ratio_diff < best_ratio_diff:
-                    best_ratio_diff = ratio_diff
-                    best_base_w, best_base_h = base_w, base_h
-
-            # Применяем выбранный множитель разрешения
             if scale_factor > 0:
                 multiplier = scale_factor
             else:
                 multiplier = RESOLUTION_MULTIPLIERS[resolution]
 
-            return (int(best_base_w * multiplier), int(best_base_h * multiplier))
+            # Целевая длинная сторона: 1280 — базовый «1k» размер
+            target_long = 1280 * multiplier
+            # Масштабируем входное изображение, сохраняя точные оригинальные пропорции
+            input_long = max(input_width, input_height)
+            s = target_long / input_long
 
-        base_w, base_h = RESOLUTIONS[aspect_ratio]
-
-        if scale_factor > 0:
-            multiplier = scale_factor
+            out_w = input_width * s
+            out_h = input_height * s
         else:
-            multiplier = RESOLUTION_MULTIPLIERS[resolution]
+            base_w, base_h = RESOLUTIONS[aspect_ratio]
 
-        out_w = int(base_w * multiplier)
-        out_h = int(base_h * multiplier)
+            if scale_factor > 0:
+                multiplier = scale_factor
+            else:
+                multiplier = RESOLUTION_MULTIPLIERS[resolution]
 
-        return (out_w, out_h)
+            out_w = base_w * multiplier
+            out_h = base_h * multiplier
+
+        if latent_compatible:
+            out_w = _round_to_multiple(out_w, 8)
+            out_h = _round_to_multiple(out_h, 8)
+
+        return (int(out_w), int(out_h))
